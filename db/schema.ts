@@ -10,6 +10,7 @@ export const tasks = sqliteTable('tasks', {
 
 export const thoughts = sqliteTable('thoughts', {
   id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
   content: text('content').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }),
   archivedAt: integer('archived_at', { mode: 'timestamp' }),
