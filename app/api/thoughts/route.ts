@@ -9,14 +9,17 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
-export async function POST(req: Request): Promise<Response> {
-  const body = await req.json()
-  const { user, from, limit } = body
+export async function GET(req: Request): Promise<Response> {
+  const { searchParams } = new URL(req.url)
+  const user = searchParams.get('user')
+  const from = searchParams.get('from')
+  const limitRaw = searchParams.get('limit')
+  const limit = limitRaw !== null ? Number(limitRaw) : NaN
 
-  if (!user || typeof user !== 'string') {
+  if (!user) {
     return json({ error: 'user is required' }, 400)
   }
-  if (!limit || typeof limit !== 'number' || limit <= 0) {
+  if (!limitRaw || isNaN(limit) || limit <= 0) {
     return json({ error: 'limit must be a positive integer' }, 400)
   }
 
@@ -30,7 +33,7 @@ export async function POST(req: Request): Promise<Response> {
       .limit(1)
 
     if (cursor.length === 0) {
-      return json({ error: 'cursor note not found' }, 400)
+      return json({ error: 'cursor thought not found' }, 400)
     }
     cursorCreatedAt = cursor[0].createdAt
   }
@@ -40,12 +43,12 @@ export async function POST(req: Request): Promise<Response> {
     conditions.push(lt(thoughts.createdAt, cursorCreatedAt))
   }
 
-  const notes = await db
+  const result = await db
     .select()
     .from(thoughts)
     .where(and(...conditions))
     .orderBy(desc(thoughts.createdAt))
     .limit(limit)
 
-  return json(notes)
+  return json(result)
 }

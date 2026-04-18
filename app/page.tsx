@@ -1,4 +1,4 @@
-const FAKE_NOTES = [
+const FAKE_THOUGHTS = [
   {
     id: '1',
     title: 'Morning reflection',
@@ -48,7 +48,7 @@ export default function Home() {
           </span>
           <button className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
             <span className="text-base leading-none">+</span>
-            New Note
+            New Thought
           </button>
         </div>
       </header>
@@ -57,22 +57,22 @@ export default function Home() {
       <main className="max-w-4xl mx-auto px-6 py-8">
         {/* Section heading */}
         <div className="flex items-baseline justify-between mb-6">
-          <h1 className="text-xl font-semibold text-gray-900">Your Notes</h1>
-          <span className="text-sm text-gray-400">{FAKE_NOTES.length} notes</span>
+          <h1 className="text-xl font-semibold text-gray-900">Your Thoughts</h1>
+          <span className="text-sm text-gray-400">{FAKE_THOUGHTS.length} thoughts</span>
         </div>
 
-        {/* Notes grid */}
+        {/* Thoughts grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {FAKE_NOTES.map((note) => (
+          {FAKE_THOUGHTS.map((thought) => (
             <div
-              key={note.id}
+              key={thought.id}
               className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
             >
-              <h2 className="font-medium text-gray-900 truncate">{note.title}</h2>
+              <h2 className="font-medium text-gray-900 truncate">{thought.title}</h2>
               <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed flex-1">
-                {note.preview}
+                {thought.preview}
               </p>
-              <span className="text-xs text-gray-400 mt-1">{note.date}</span>
+              <span className="text-xs text-gray-400 mt-1">{thought.date}</span>
             </div>
           ))}
         </div>
