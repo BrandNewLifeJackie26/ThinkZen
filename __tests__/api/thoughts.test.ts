@@ -160,35 +160,45 @@ describe('POST /thoughts', () => {
     })
   }
 
-  it('returns 400 when user is missing', async () => {
+  it('returns 400 when body is not an array', async () => {
     const res = await POST(makePostRequest({ content: 'hello', timestamp: 1000 }))
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when content is missing', async () => {
-    const res = await POST(makePostRequest({ user: 'alice', timestamp: 1000 }))
+  it('returns 400 when user is missing from an item', async () => {
+    const res = await POST(makePostRequest([{ content: 'hello', timestamp: 1000 }]))
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when timestamp is missing', async () => {
-    const res = await POST(makePostRequest({ user: 'alice', content: 'hello' }))
+  it('returns 400 when content is missing from an item', async () => {
+    const res = await POST(makePostRequest([{ user: 'alice', timestamp: 1000 }]))
     expect(res.status).toBe(400)
   })
 
-  it('returns 201 with the created thought', async () => {
-    const res = await POST(makePostRequest({ user: 'alice', content: 'hello', timestamp: 1000, tags: ['focus'] }))
+  it('returns 400 when timestamp is missing from an item', async () => {
+    const res = await POST(makePostRequest([{ user: 'alice', content: 'hello' }]))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 201 with an array of created thoughts', async () => {
+    const res = await POST(makePostRequest([
+      { user: 'alice', content: 'first', timestamp: 1000, tags: ['focus'] },
+      { user: 'alice', content: 'second', timestamp: 2000 },
+    ]))
     expect(res.status).toBe(201)
 
-    const thought = await res.json()
-    expect(thought.userId).toBe('alice')
-    expect(thought.content).toBe('hello')
-    expect(thought.tags).toEqual(['focus'])
-    expect(thought.id).toBeDefined()
+    const result = await res.json()
+    expect(result).toHaveLength(2)
+    expect(result[0].content).toBe('first')
+    expect(result[0].tags).toEqual(['focus'])
+    expect(result[1].content).toBe('second')
+    expect(result[1].tags).toEqual([])
+    expect(result[0].id).toBeDefined()
   })
 
   it('defaults tags to empty array when omitted', async () => {
-    const res = await POST(makePostRequest({ user: 'alice', content: 'hello', timestamp: 1000 }))
+    const res = await POST(makePostRequest([{ user: 'alice', content: 'hello', timestamp: 1000 }]))
     expect(res.status).toBe(201)
-    expect((await res.json()).tags).toEqual([])
+    expect((await res.json())[0].tags).toEqual([])
   })
 })
