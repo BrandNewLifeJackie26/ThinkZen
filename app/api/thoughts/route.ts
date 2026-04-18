@@ -1,6 +1,7 @@
 import { db } from '@/db'
 import { thoughts } from '@/db/schema'
 import { and, desc, eq, lt } from 'drizzle-orm'
+import { randomUUID } from 'crypto'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -51,4 +52,46 @@ export async function GET(req: Request): Promise<Response> {
     .limit(limit)
 
   return json(result)
+}
+
+export async function POST(req: Request): Promise<Response> {
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return json({ error: 'invalid JSON body' }, 400)
+  }
+
+  if (typeof body !== 'object' || body === null) {
+    return json({ error: 'body must be an object' }, 400)
+  }
+
+  const { user, timestamp, content, tags } = body as Record<string, unknown>
+
+  if (!user || typeof user !== 'string') {
+    return json({ error: 'user is required' }, 400)
+  }
+  if (!content || typeof content !== 'string') {
+    return json({ error: 'content is required' }, 400)
+  }
+  if (timestamp === undefined || timestamp === null) {
+    return json({ error: 'timestamp is required' }, 400)
+  }
+
+  const resolvedTags: string[] = Array.isArray(tags)
+    ? tags.filter((t): t is string => typeof t === 'string')
+    : []
+
+  const inserted = await db
+    .insert(thoughts)
+    .values({
+      id: randomUUID(),
+      userId: user,
+      content,
+      createdAt: new Date(timestamp as number),
+      tags: JSON.stringify(resolvedTags),
+    })
+    .returning()
+
+  return json({ ...inserted[0], tags: resolvedTags }, 201)
 }

@@ -14,4 +14,5 @@ export const thoughts = sqliteTable('thoughts', {
   content: text('content').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }),
   archivedAt: integer('archived_at', { mode: 'timestamp' }),
+  tags: text('tags'),
 })
