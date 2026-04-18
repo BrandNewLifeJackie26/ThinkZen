@@ -1,8 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 import { sqlite } from '@/db'
-import { GET } from '@/app/api/thoughts/route'
+import { GET, POST } from '@/app/api/thoughts/route'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -36,9 +36,16 @@ function insertThought(thought: ThoughtRow) {
 // ---------------------------------------------------------------------------
 
 beforeAll(() => {
-  const migration = readFileSync(resolve(__dirname, '../../drizzle/0000_neat_kulan_gath.sql'), 'utf-8')
-  for (const statement of migration.split('--> statement-breakpoint')) {
-    sqlite.exec(statement.trim())
+  const migrationsDir = resolve(__dirname, '../../drizzle')
+  const files = readdirSync(migrationsDir)
+    .filter(f => f.endsWith('.sql'))
+    .sort()
+  for (const file of files) {
+    const sql = readFileSync(resolve(migrationsDir, file), 'utf-8')
+    for (const statement of sql.split('--> statement-breakpoint')) {
+      const trimmed = statement.trim()
+      if (trimmed) sqlite.exec(trimmed)
+    }
   }
 })
 
@@ -141,5 +148,57 @@ describe('GET /thoughts', () => {
     const res = await GET(makeRequest({ user: 'alice', from: 'n1', limit: 10 }))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual([])
+  })
+})
+
+describe('POST /thoughts', () => {
+  function makePostRequest(body: unknown) {
+    return new Request('http://localhost/api/thoughts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('returns 400 when body is not an array', async () => {
+    const res = await POST(makePostRequest({ content: 'hello', timestamp: 1000 }))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when user is missing from an item', async () => {
+    const res = await POST(makePostRequest([{ content: 'hello', timestamp: 1000 }]))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when content is missing from an item', async () => {
+    const res = await POST(makePostRequest([{ user: 'alice', timestamp: 1000 }]))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when timestamp is missing from an item', async () => {
+    const res = await POST(makePostRequest([{ user: 'alice', content: 'hello' }]))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 201 with an array of created thoughts', async () => {
+    const res = await POST(makePostRequest([
+      { user: 'alice', content: 'first', timestamp: 1000, tags: ['focus'] },
+      { user: 'alice', content: 'second', timestamp: 2000 },
+    ]))
+    expect(res.status).toBe(201)
+
+    const result = await res.json()
+    expect(result).toHaveLength(2)
+    expect(result[0].content).toBe('first')
+    expect(result[0].tags).toEqual(['focus'])
+    expect(result[1].content).toBe('second')
+    expect(result[1].tags).toEqual([])
+    expect(result[0].id).toBeDefined()
+  })
+
+  it('defaults tags to empty array when omitted', async () => {
+    const res = await POST(makePostRequest([{ user: 'alice', content: 'hello', timestamp: 1000 }]))
+    expect(res.status).toBe(201)
+    expect((await res.json())[0].tags).toEqual([])
   })
 })

@@ -1,6 +1,7 @@
 import { db } from '@/db'
 import { thoughts } from '@/db/schema'
 import { and, desc, eq, lt } from 'drizzle-orm'
+import { randomUUID } from 'crypto'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -51,4 +52,67 @@ export async function GET(req: Request): Promise<Response> {
     .limit(limit)
 
   return json(result)
+}
+
+type ThoughtInput = {
+  user: string
+  timestamp: number
+  content: string
+  tags?: string[]
+}
+
+function validateThought(item: unknown, index: number): { error: string } | ThoughtInput {
+  if (typeof item !== 'object' || item === null) {
+    return { error: `item at index ${index} must be an object` }
+  }
+  const { user, timestamp, content, tags } = item as Record<string, unknown>
+  if (!user || typeof user !== 'string') {
+    return { error: `item at index ${index}: user is required` }
+  }
+  if (!content || typeof content !== 'string') {
+    return { error: `item at index ${index}: content is required` }
+  }
+  if (timestamp === undefined || timestamp === null) {
+    return { error: `item at index ${index}: timestamp is required` }
+  }
+  return {
+    user,
+    timestamp: timestamp as number,
+    content,
+    tags: Array.isArray(tags) ? tags.filter((t): t is string => typeof t === 'string') : [],
+  }
+}
+
+export async function POST(req: Request): Promise<Response> {
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return json({ error: 'invalid JSON body' }, 400)
+  }
+
+  if (!Array.isArray(body)) {
+    return json({ error: 'body must be an array of thoughts' }, 400)
+  }
+
+  const inputs: ThoughtInput[] = []
+  for (let i = 0; i < body.length; i++) {
+    const result = validateThought(body[i], i)
+    if ('error' in result) return json(result, 400)
+    inputs.push(result)
+  }
+
+  const inserted = await db
+    .insert(thoughts)
+    .values(inputs.map(({ user, timestamp, content, tags }) => ({
+      id: randomUUID(),
+      userId: user,
+      content,
+      createdAt: new Date(timestamp),
+      tags: JSON.stringify(tags ?? []),
+    })))
+    .returning()
+
+  const result = inserted.map((row, i) => ({ ...row, tags: inputs[i].tags ?? [] }))
+  return json(result, 201)
 }
