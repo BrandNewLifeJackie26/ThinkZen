@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1776225820648,
+      "tag": "0000_think_zen_main_db",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776611886577,
+      "tag": "0001_add_sessions_table",
+      "breakpoints": true
+    }
+  ]
+}
