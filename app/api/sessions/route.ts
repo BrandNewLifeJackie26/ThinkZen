@@ -2,13 +2,7 @@ import { db } from '@/db'
 import { sessions } from '@/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
-
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
+import { json } from '@/app/api/utils'
 
 export async function GET(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url)
