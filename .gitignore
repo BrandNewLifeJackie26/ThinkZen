@@ -17,7 +17,6 @@ build/
 *.db
 *.db-shm
 *.db-wal
-drizzle/
 
 # misc
 .DS_Store
