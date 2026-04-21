@@ -21,7 +21,8 @@ export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
   intention: text('intention').notNull(),
-  plannedDurationMinutes: integer('planned_duration_minutes').notNull(),
+  plannedDurationSeconds: integer('planned_duration_seconds').notNull(),
   startedAt: integer('started_at', { mode: 'timestamp' }).notNull(),
   endedAt: integer('ended_at', { mode: 'timestamp' }),
+  remainingSeconds: integer('remaining_seconds'),
 })

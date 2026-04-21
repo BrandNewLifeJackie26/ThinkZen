@@ -16,9 +16,8 @@ export async function GET(req: Request): Promise<Response> {
     .select()
     .from(sessions)
     .where(and(eq(sessions.userId, user), isNull(sessions.endedAt)))
-    .limit(1)
 
-  return json(result[0] ?? null)
+  return json(result)
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -33,7 +32,7 @@ export async function POST(req: Request): Promise<Response> {
     return json({ error: 'body must be an object' }, 400)
   }
 
-  const { user, intention, plannedDurationMinutes } = body as Record<string, unknown>
+  const { user, intention, plannedDurationSeconds } = body as Record<string, unknown>
 
   if (!user || typeof user !== 'string') {
     return json({ error: 'user is required' }, 400)
@@ -42,12 +41,12 @@ export async function POST(req: Request): Promise<Response> {
     return json({ error: 'intention is required' }, 400)
   }
   if (
-    plannedDurationMinutes === undefined ||
-    typeof plannedDurationMinutes !== 'number' ||
-    !Number.isInteger(plannedDurationMinutes) ||
-    plannedDurationMinutes <= 0
+    plannedDurationSeconds === undefined ||
+    typeof plannedDurationSeconds !== 'number' ||
+    !Number.isInteger(plannedDurationSeconds) ||
+    plannedDurationSeconds <= 0
   ) {
-    return json({ error: 'plannedDurationMinutes must be a positive integer' }, 400)
+    return json({ error: 'plannedDurationSeconds must be a positive integer' }, 400)
   }
 
   const existing = await db
@@ -66,7 +65,7 @@ export async function POST(req: Request): Promise<Response> {
       id: randomUUID(),
       userId: user,
       intention,
-      plannedDurationMinutes,
+      plannedDurationSeconds,
       startedAt: new Date(),
     })
     .returning()
