@@ -17,13 +17,26 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return json({ error: 'body must be an object' }, 400)
   }
 
-  const { user } = body as Record<string, unknown>
+  const { user, remainingSeconds } = body as Record<string, unknown>
 
   if (!user || typeof user !== 'string') {
     return json({ error: 'user is required' }, 400)
   }
 
-  const [session] = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1)
+  if (
+    remainingSeconds !== undefined &&
+    (typeof remainingSeconds !== 'number' || !Number.isInteger(remainingSeconds) || remainingSeconds < 0)
+  ) {
+    return json({ error: 'remainingSeconds must be a non-negative integer' }, 400)
+  }
+
+  const results = await db.select().from(sessions).where(eq(sessions.id, id))
+
+  if (results.length > 1) {
+    return json({ error: 'internal error: duplicate session id' }, 500)
+  }
+
+  const session = results[0]
 
   if (!session) {
     return json({ error: 'session not found' }, 404)
@@ -37,9 +50,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return json({ error: 'session already ended' }, 409)
   }
 
+  const resolvedRemainingSeconds =
+    remainingSeconds !== undefined
+      ? (remainingSeconds as number)
+      : session.plannedDurationMinutes * 60
+
   const [updated] = await db
     .update(sessions)
-    .set({ endedAt: new Date(), remainingMinutes: session.plannedDurationMinutes })
+    .set({ endedAt: new Date(), remainingSeconds: resolvedRemainingSeconds })
     .where(and(eq(sessions.id, id), isNull(sessions.endedAt)))
     .returning()
 

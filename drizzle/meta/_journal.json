@@ -20,7 +20,7 @@
       "idx": 2,
       "version": "6",
       "when": 1745107200000,
-      "tag": "0002_add_sessions_remaining_minutes",
+      "tag": "0002_add_sessions_remaining_seconds",
       "breakpoints": true
     }
   ]

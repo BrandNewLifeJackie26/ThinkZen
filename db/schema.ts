@@ -24,5 +24,5 @@ export const sessions = sqliteTable('sessions', {
   plannedDurationMinutes: integer('planned_duration_minutes').notNull(),
   startedAt: integer('started_at', { mode: 'timestamp' }).notNull(),
   endedAt: integer('ended_at', { mode: 'timestamp' }),
-  remainingMinutes: integer('remaining_minutes'),
+  remainingSeconds: integer('remaining_seconds'),
 })

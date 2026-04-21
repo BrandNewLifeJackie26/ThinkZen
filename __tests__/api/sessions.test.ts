@@ -154,7 +154,7 @@ describe('GET /sessions', () => {
 })
 
 describe('PATCH /sessions/:id', () => {
-  it('stops an active session and sets remainingMinutes to plannedDurationMinutes', async () => {
+  it('stops an active session and sets remainingSeconds to plannedDurationMinutes', async () => {
     const postRes = await POST(makePostRequest({ user: 'alice', intention: 'deep work', plannedDurationMinutes: 45 }))
     const session = await postRes.json()
 
@@ -163,7 +163,19 @@ describe('PATCH /sessions/:id', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.endedAt).not.toBeNull()
-    expect(body.remainingMinutes).toBe(45)
+    expect(body.remainingSeconds).toBe(45 * 60)
+  })
+
+  it('stops a session with a custom remainingSeconds when paused mid-session', async () => {
+    const postRes = await POST(makePostRequest({ user: 'alice', intention: 'deep work', plannedDurationMinutes: 45 }))
+    const session = await postRes.json()
+
+    const { req, ctx } = makePatchRequest(session.id, { user: 'alice', remainingSeconds: 1500 })
+    const res = await PATCH(req, ctx)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.endedAt).not.toBeNull()
+    expect(body.remainingSeconds).toBe(1500)
   })
 
   it('returns 404 for an unknown session id', async () => {
