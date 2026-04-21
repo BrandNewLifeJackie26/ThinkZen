@@ -16,9 +16,8 @@ export async function GET(req: Request): Promise<Response> {
     .select()
     .from(sessions)
     .where(and(eq(sessions.userId, user), isNull(sessions.endedAt)))
-    .limit(1)
 
-  return json(result[0] ?? null)
+  return json(result)
 }
 
 export async function POST(req: Request): Promise<Response> {

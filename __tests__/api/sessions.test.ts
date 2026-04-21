@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'fs'
 import { resolve } from 'path'
 import { sqlite } from '@/db'
 import { GET, POST } from '@/app/api/sessions/route'
+import { PATCH } from '@/app/api/sessions/[id]/route'
 
 function makeGetRequest(params: Record<string, string | undefined>) {
   const url = new URL('http://localhost/api/sessions')
@@ -18,6 +19,17 @@ function makePostRequest(body: unknown) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+}
+
+function makePatchRequest(id: string, body: unknown) {
+  return {
+    req: new Request(`http://localhost/api/sessions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+    ctx: { params: Promise.resolve({ id }) },
+  }
 }
 
 beforeAll(() => {
@@ -93,10 +105,10 @@ describe('POST /sessions', () => {
 })
 
 describe('GET /sessions', () => {
-  it('returns null when no active session exists', async () => {
+  it('returns empty array when no active session exists', async () => {
     const res = await GET(makeGetRequest({ user: 'alice' }))
     expect(res.status).toBe(200)
-    expect(await res.json()).toBeNull()
+    expect(await res.json()).toEqual([])
   })
 
   it('returns the active session', async () => {
@@ -104,15 +116,28 @@ describe('GET /sessions', () => {
     const res = await GET(makeGetRequest({ user: 'alice' }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.intention).toBe('deep work')
-    expect(body.endedAt).toBeNull()
+    expect(body).toHaveLength(1)
+    expect(body[0].intention).toBe('deep work')
+    expect(body[0].endedAt).toBeNull()
+  })
+
+  it('returns all unfinished sessions', async () => {
+    sqlite.exec(`
+      INSERT INTO sessions (id, user_id, intention, planned_duration_minutes, started_at)
+      VALUES ('s1', 'alice', 'task one', 25, unixepoch()),
+             ('s2', 'alice', 'task two', 50, unixepoch())
+    `)
+    const res = await GET(makeGetRequest({ user: 'alice' }))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toHaveLength(2)
   })
 
   it('does not return ended sessions', async () => {
     await POST(makePostRequest({ user: 'alice', intention: 'old', plannedDurationMinutes: 25 }))
     sqlite.exec("UPDATE sessions SET ended_at = unixepoch() WHERE user_id = 'alice'")
     const res = await GET(makeGetRequest({ user: 'alice' }))
-    expect(await res.json()).toBeNull()
+    expect(await res.json()).toEqual([])
   })
 
   it('returns 400 when user is missing', async () => {
@@ -124,6 +149,55 @@ describe('GET /sessions', () => {
   it('does not return sessions belonging to other users', async () => {
     await POST(makePostRequest({ user: 'bob', intention: 'bob work', plannedDurationMinutes: 25 }))
     const res = await GET(makeGetRequest({ user: 'alice' }))
-    expect(await res.json()).toBeNull()
+    expect(await res.json()).toEqual([])
+  })
+})
+
+describe('PATCH /sessions/:id', () => {
+  it('stops an active session and sets remainingMinutes to plannedDurationMinutes', async () => {
+    const postRes = await POST(makePostRequest({ user: 'alice', intention: 'deep work', plannedDurationMinutes: 45 }))
+    const session = await postRes.json()
+
+    const { req, ctx } = makePatchRequest(session.id, { user: 'alice' })
+    const res = await PATCH(req, ctx)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.endedAt).not.toBeNull()
+    expect(body.remainingMinutes).toBe(45)
+  })
+
+  it('returns 404 for an unknown session id', async () => {
+    const { req, ctx } = makePatchRequest('nonexistent-id', { user: 'alice' })
+    const res = await PATCH(req, ctx)
+    expect(res.status).toBe(404)
+    expect(await res.json()).toMatchObject({ error: 'session not found' })
+  })
+
+  it('returns 403 when user does not own the session', async () => {
+    const postRes = await POST(makePostRequest({ user: 'alice', intention: 'work', plannedDurationMinutes: 25 }))
+    const session = await postRes.json()
+
+    const { req, ctx } = makePatchRequest(session.id, { user: 'bob' })
+    const res = await PATCH(req, ctx)
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: 'forbidden' })
+  })
+
+  it('returns 409 when session is already ended', async () => {
+    const postRes = await POST(makePostRequest({ user: 'alice', intention: 'work', plannedDurationMinutes: 25 }))
+    const session = await postRes.json()
+    sqlite.exec(`UPDATE sessions SET ended_at = unixepoch() WHERE id = '${session.id}'`)
+
+    const { req, ctx } = makePatchRequest(session.id, { user: 'alice' })
+    const res = await PATCH(req, ctx)
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ error: 'session already ended' })
+  })
+
+  it('returns 400 when user is missing', async () => {
+    const { req, ctx } = makePatchRequest('some-id', {})
+    const res = await PATCH(req, ctx)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'user is required' })
   })
 })
