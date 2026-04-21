@@ -53,7 +53,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const resolvedRemainingSeconds =
     remainingSeconds !== undefined
       ? (remainingSeconds as number)
-      : session.plannedDurationMinutes * 60
+      : session.plannedDurationSeconds
 
   const [updated] = await db
     .update(sessions)
