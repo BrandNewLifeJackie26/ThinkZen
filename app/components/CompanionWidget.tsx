@@ -4,10 +4,14 @@ import { useState, useRef, useEffect } from 'react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type PausedSnapshot = { intention: string; companionTask: string; remainingSeconds: number }
+
 type CompanionPhase =
   | { phase: 'inactive' }
   | { phase: 'planning'; companionTask: string }
-  | { phase: 'active'; intention: string; companionTask: string }
+  | { phase: 'active'; intention: string; companionTask: string; remainingSeconds: number }
+  | { phase: 'paused'; intention: string; companionTask: string; remainingSeconds: number }
+  | { phase: 'switching'; prior?: PausedSnapshot }
   | { phase: 'wrapping'; intention: string; companionTask: string }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -27,7 +31,14 @@ const AFFIRMING_MESSAGES = [
   'Keep the momentum going!',
 ] as const
 
+const MOCK_SESSIONS: { id: string; intention: string; remainingMinutes: number }[] = [
+  { id: 'mock-1', intention: 'Writing chapter 3', remainingMinutes: 25 },
+  { id: 'mock-2', intention: 'Reviewing pull requests', remainingMinutes: 45 },
+  { id: 'mock-3', intention: 'Deep work on auth system', remainingMinutes: 12 },
+]
+
 const WRAP_UP_DELAY_MS = 1800
+const DEFAULT_DURATION_MINUTES = 25
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,20 +46,32 @@ function pickRandom<T extends readonly string[]>(arr: T): T[number] {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function PlanningModal({
   companionTask,
   intention,
+  duration,
   onIntentionChange,
+  onDurationChange,
   onStart,
   onCancel,
+  onSwitchSessions,
 }: {
   companionTask: string
   intention: string
+  duration: number
   onIntentionChange: (v: string) => void
+  onDurationChange: (v: number) => void
   onStart: () => void
   onCancel: () => void
+  onSwitchSessions: () => void
 }) {
   const [visible, setVisible] = useState(false)
 
@@ -84,6 +107,21 @@ function PlanningModal({
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && intention.trim()) onStart()
           }}
         />
+        <div className="w-full flex items-center gap-3">
+          <label className="text-xs text-gray-500 shrink-0" htmlFor="session-duration">
+            Duration
+          </label>
+          <input
+            id="session-duration"
+            type="number"
+            min={1}
+            max={180}
+            value={duration}
+            onChange={(e) => onDurationChange(Math.max(1, Math.min(180, Number(e.target.value))))}
+            className="w-16 text-sm border border-gray-200 rounded-lg px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          />
+          <span className="text-xs text-gray-500">min</span>
+        </div>
         <button
           className="w-full py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={onStart}
@@ -91,11 +129,75 @@ function PlanningModal({
         >
           Let&apos;s go!
         </button>
+        <div className="flex gap-4">
+          <button
+            className="text-xs text-indigo-500 hover:text-indigo-700 transition-colors"
+            onClick={onSwitchSessions}
+          >
+            Resume a session
+          </button>
+          <button
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={onCancel}
+          >
+            Never mind
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SessionSwitcher({
+  sessions,
+  onSelect,
+  onCancel,
+}: {
+  sessions: { id: string; intention: string; remainingMinutes: number }[]
+  onSelect: (session: { id: string; intention: string; remainingMinutes: number }) => void
+  onCancel: () => void
+}) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  return (
+    <div
+      className={`fixed bottom-24 right-6 z-40 w-80 bg-white rounded-2xl shadow-2xl p-6 transition-all duration-300 ${
+        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+      }`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="switcher-title"
+    >
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl select-none" aria-hidden="true">🐧</span>
+          <p id="switcher-title" className="text-sm font-medium text-gray-700">
+            Pick a session to resume
+          </p>
+        </div>
+        <ul className="flex flex-col gap-2">
+          {sessions.map((s) => (
+            <li key={s.id}>
+              <button
+                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                onClick={() => onSelect(s)}
+              >
+                <p className="text-sm font-medium text-gray-800 truncate">{s.intention}</p>
+                <p className="text-xs text-indigo-500 mt-0.5">{s.remainingMinutes} min remaining</p>
+              </button>
+            </li>
+          ))}
+        </ul>
         <button
-          className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          className="text-xs text-gray-400 hover:text-gray-600 transition-colors self-center"
           onClick={onCancel}
         >
-          Never mind
+          Cancel
         </button>
       </div>
     </div>
@@ -107,8 +209,26 @@ function PlanningModal({
 export default function CompanionWidget() {
   const [phase, setPhase] = useState<CompanionPhase>({ phase: 'inactive' })
   const [intention, setIntention] = useState('')
+  const [duration, setDuration] = useState(DEFAULT_DURATION_MINUTES)
   const affirmingMessageRef = useRef<string>('')
 
+  // Countdown tick
+  useEffect(() => {
+    if (phase.phase !== 'active') return
+    const id = setInterval(() => {
+      setPhase((prev) => {
+        if (prev.phase !== 'active') return prev
+        if (prev.remainingSeconds <= 1) {
+          affirmingMessageRef.current = pickRandom(AFFIRMING_MESSAGES)
+          return { phase: 'wrapping', intention: prev.intention, companionTask: prev.companionTask }
+        }
+        return { ...prev, remainingSeconds: prev.remainingSeconds - 1 }
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [phase.phase])
+
+  // Auto-dismiss wrapping state
   useEffect(() => {
     if (phase.phase !== 'wrapping') return
     const id = setTimeout(() => setPhase({ phase: 'inactive' }), WRAP_UP_DELAY_MS)
@@ -117,16 +237,68 @@ export default function CompanionWidget() {
 
   function openPlanning() {
     setIntention('')
+    setDuration(DEFAULT_DURATION_MINUTES)
     setPhase({ phase: 'planning', companionTask: pickRandom(COMPANION_TASKS) })
   }
 
   function startSession() {
     if (!intention.trim() || phase.phase !== 'planning') return
-    setPhase({ phase: 'active', intention: intention.trim(), companionTask: phase.companionTask })
+    setPhase({
+      phase: 'active',
+      intention: intention.trim(),
+      companionTask: phase.companionTask,
+      remainingSeconds: duration * 60,
+    })
+  }
+
+  function handlePause() {
+    if (phase.phase !== 'active') return
+    setPhase({
+      phase: 'paused',
+      intention: phase.intention,
+      companionTask: phase.companionTask,
+      remainingSeconds: phase.remainingSeconds,
+    })
+  }
+
+  function handleResume() {
+    if (phase.phase !== 'paused') return
+    setPhase({
+      phase: 'active',
+      intention: phase.intention,
+      companionTask: phase.companionTask,
+      remainingSeconds: phase.remainingSeconds,
+    })
+  }
+
+  function openSwitcher() {
+    const prior: PausedSnapshot | undefined =
+      phase.phase === 'paused'
+        ? { intention: phase.intention, companionTask: phase.companionTask, remainingSeconds: phase.remainingSeconds }
+        : undefined
+    setPhase({ phase: 'switching', prior })
+  }
+
+  function selectSession(session: { id: string; intention: string; remainingMinutes: number }) {
+    setPhase({
+      phase: 'active',
+      intention: session.intention,
+      companionTask: pickRandom(COMPANION_TASKS),
+      remainingSeconds: session.remainingMinutes * 60,
+    })
+  }
+
+  function cancelSwitcher() {
+    if (phase.phase !== 'switching') return
+    if (phase.prior) {
+      setPhase({ phase: 'paused', ...phase.prior })
+    } else {
+      setPhase({ phase: 'planning', companionTask: pickRandom(COMPANION_TASKS) })
+    }
   }
 
   function handleWrapUp() {
-    if (phase.phase !== 'active') return
+    if (phase.phase !== 'active' && phase.phase !== 'paused') return
     affirmingMessageRef.current = pickRandom(AFFIRMING_MESSAGES)
     setPhase({ phase: 'wrapping', intention: phase.intention, companionTask: phase.companionTask })
   }
@@ -135,7 +307,7 @@ export default function CompanionWidget() {
     setPhase({ phase: 'inactive' })
   }
 
-  // ── inactive ─────────────────────────────────────────────────────────────────
+  // ── inactive ──────────────────────────────────────────────────────────────────
 
   if (phase.phase === 'inactive') {
     return (
@@ -149,7 +321,7 @@ export default function CompanionWidget() {
     )
   }
 
-  // ── planning ─────────────────────────────────────────────────────────────────
+  // ── planning ──────────────────────────────────────────────────────────────────
 
   if (phase.phase === 'planning') {
     return (
@@ -161,9 +333,27 @@ export default function CompanionWidget() {
         <PlanningModal
           companionTask={phase.companionTask}
           intention={intention}
+          duration={duration}
           onIntentionChange={setIntention}
+          onDurationChange={setDuration}
           onStart={startSession}
           onCancel={() => setPhase({ phase: 'inactive' })}
+          onSwitchSessions={openSwitcher}
+        />
+      </>
+    )
+  }
+
+  // ── switching ─────────────────────────────────────────────────────────────────
+
+  if (phase.phase === 'switching') {
+    return (
+      <>
+        <div className="fixed inset-0 z-30 bg-black/40" onClick={cancelSwitcher} />
+        <SessionSwitcher
+          sessions={MOCK_SESSIONS}
+          onSelect={selectSession}
+          onCancel={cancelSwitcher}
         />
       </>
     )
@@ -185,8 +375,65 @@ export default function CompanionWidget() {
           <span className="text-xs text-gray-400">you&apos;re working on...</span>
           <p className="text-sm text-gray-800 line-clamp-2">{phase.intention}</p>
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-2xl font-mono font-semibold text-indigo-600 tabular-nums">
+            {formatTime(phase.remainingSeconds)}
+          </span>
+          <button
+            className="px-3 py-1 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
+            onClick={handlePause}
+          >
+            Pause
+          </button>
+        </div>
         <button
           className="w-full py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+          onClick={handleWrapUp}
+        >
+          Wrap up
+        </button>
+      </div>
+    )
+  }
+
+  // ── paused ────────────────────────────────────────────────────────────────────
+
+  if (phase.phase === 'paused') {
+    return (
+      <div className="fixed bottom-6 right-6 z-30 w-64 bg-white rounded-2xl shadow-xl border border-amber-100 p-4 flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl select-none" aria-hidden="true">🐧</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs text-amber-500">taking a break...</span>
+            <span className="text-sm font-medium text-gray-700 truncate">{phase.companionTask}</span>
+          </div>
+        </div>
+        <div className="border-t border-gray-100 pt-3 flex flex-col gap-1">
+          <span className="text-xs text-gray-400">you were working on...</span>
+          <p className="text-sm text-gray-800 line-clamp-2">{phase.intention}</p>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-2xl font-mono font-semibold text-amber-500 tabular-nums">
+            {formatTime(phase.remainingSeconds)}
+          </span>
+          <span className="text-xs text-amber-400 font-medium">paused</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+            onClick={handleResume}
+          >
+            Resume
+          </button>
+          <button
+            className="flex-1 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            onClick={openSwitcher}
+          >
+            Switch
+          </button>
+        </div>
+        <button
+          className="w-full py-1.5 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           onClick={handleWrapUp}
         >
           Wrap up
