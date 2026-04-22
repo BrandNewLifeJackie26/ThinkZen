@@ -277,7 +277,7 @@ export default function CompanionWidget({ user }: { user: string }) {
         }
       })
     }).catch(() => { /* best-effort */ })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchSessions])
 
   // Countdown tick
   useEffect(() => {
