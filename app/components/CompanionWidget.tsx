@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +56,43 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+// ─── API hooks ────────────────────────────────────────────────────────────────
+
+function useStartSession(user: string) {
+  return useCallback(
+    (params: { intention: string; plannedDurationSeconds: number }) =>
+      fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user, ...params }),
+      }),
+    [user]
+  )
+}
+
+function useEndSession(user: string) {
+  return useCallback(
+    (sessionId: string, remainingSeconds: number) =>
+      fetch(`/api/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user, remainingSeconds }),
+        keepalive: true,
+      }),
+    [user]
+  )
+}
+
+function useFetchSessions(user: string) {
+  return useCallback(
+    async (): Promise<SessionRecord[]> => {
+      const res = await fetch(`/api/sessions?user=${encodeURIComponent(user)}`)
+      return res.json()
+    },
+    [user]
+  )
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -177,6 +214,38 @@ function SessionSwitcher({
     return () => cancelAnimationFrame(id)
   }, [])
 
+  function renderBody() {
+    if (loading) {
+      return (
+        <div className="flex justify-center py-4">
+          <div className="w-5 h-5 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+        </div>
+      )
+    }
+    if (sessions.length === 0) {
+      return <p className="text-sm text-gray-400 text-center py-2">No other sessions to resume.</p>
+    }
+    return (
+      <ul className="flex flex-col gap-2">
+        {sessions.map((s) => {
+          const remaining = s.remainingSeconds ?? s.plannedDurationSeconds
+          const remainingMin = Math.ceil(remaining / 60)
+          return (
+            <li key={s.id}>
+              <button
+                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                onClick={() => onSelect(s)}
+              >
+                <p className="text-sm font-medium text-gray-800 truncate">{s.intention}</p>
+                <p className="text-xs text-indigo-500 mt-0.5">{remainingMin} min remaining</p>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    )
+  }
+
   return (
     <div
       className={`fixed bottom-24 right-6 z-40 w-80 bg-white rounded-2xl shadow-2xl p-6 transition-all duration-300 ${
@@ -193,31 +262,7 @@ function SessionSwitcher({
             Pick a session to resume
           </p>
         </div>
-        {loading ? (
-          <div className="flex justify-center py-4">
-            <div className="w-5 h-5 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
-          </div>
-        ) : sessions.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-2">No other sessions to resume.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {sessions.map((s) => {
-              const remaining = s.remainingSeconds ?? s.plannedDurationSeconds
-              const remainingMin = Math.ceil(remaining / 60)
-              return (
-                <li key={s.id}>
-                  <button
-                    className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
-                    onClick={() => onSelect(s)}
-                  >
-                    <p className="text-sm font-medium text-gray-800 truncate">{s.intention}</p>
-                    <p className="text-xs text-indigo-500 mt-0.5">{remainingMin} min remaining</p>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        {renderBody()}
         <button
           className="text-xs text-gray-400 hover:text-gray-600 transition-colors self-center"
           onClick={onCancel}
@@ -239,6 +284,25 @@ export default function CompanionWidget({ user }: { user: string }) {
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const affirmingMessageRef = useRef<string>('')
+  const phaseRef = useRef(phase)
+
+  const startSessionApi = useStartSession(user)
+  const endSession = useEndSession(user)
+  const fetchSessions = useFetchSessions(user)
+
+  // Keep phaseRef in sync so the beforeunload handler always sees the latest phase
+  useEffect(() => { phaseRef.current = phase })
+
+  // Persist remaining time when the tab is closed during an active/paused session
+  useEffect(() => {
+    function handleUnload() {
+      const p = phaseRef.current
+      if (p.phase !== 'active' && p.phase !== 'paused') return
+      endSession(p.sessionId, p.remainingSeconds)
+    }
+    window.addEventListener('beforeunload', handleUnload)
+    return () => window.removeEventListener('beforeunload', handleUnload)
+  }, [endSession])
 
   // Countdown tick
   useEffect(() => {
@@ -265,16 +329,11 @@ export default function CompanionWidget({ user }: { user: string }) {
   // End session in DB when wrapping, then auto-dismiss
   useEffect(() => {
     if (phase.phase !== 'wrapping') return
-
-    fetch(`/api/sessions/${phase.sessionId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user, remainingSeconds: phase.remainingSeconds }),
-    }).catch(console.error)
-
+    const { sessionId, remainingSeconds } = phase
+    endSession(sessionId, remainingSeconds).catch(console.error)
     const id = setTimeout(() => setPhase({ phase: 'inactive' }), WRAP_UP_DELAY_MS)
     return () => clearTimeout(id)
-  }, [phase.phase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, endSession])
 
   function openPlanning() {
     setIntention('')
@@ -288,14 +347,9 @@ export default function CompanionWidget({ user }: { user: string }) {
     const companionTask = phase.companionTask
     setStartError(null)
 
-    const res = await fetch('/api/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user,
-        intention: intention.trim(),
-        plannedDurationSeconds: duration * 60,
-      }),
+    const res = await startSessionApi({
+      intention: intention.trim(),
+      plannedDurationSeconds: duration * 60,
     })
 
     if (res.status === 409) {
@@ -356,8 +410,7 @@ export default function CompanionWidget({ user }: { user: string }) {
     setSessionsLoading(true)
 
     try {
-      const res = await fetch(`/api/sessions?user=${encodeURIComponent(user)}`)
-      const data: SessionRecord[] = await res.json()
+      const data = await fetchSessions()
       // Exclude the currently paused session from the list
       const filtered = prior ? data.filter((s) => s.id !== prior.sessionId) : data
       setSessions(filtered)
