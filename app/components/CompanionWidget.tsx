@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { type SessionRecord, useStartSession, useEndSession, useFetchSessions } from '@/app/hooks/sessions'
+import { type SessionRecord, useStartSession, useEndSession, useFetchSessions, computeRemainingSeconds } from '@/app/hooks/sessions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -241,25 +241,28 @@ export default function CompanionWidget({ user }: { user: string }) {
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const affirmingMessageRef = useRef<string>('')
-  const phaseRef = useRef(phase)
 
   const startSessionApi = useStartSession(user)
   const endSession = useEndSession(user)
   const fetchSessions = useFetchSessions(user)
 
-  // Keep phaseRef in sync so the beforeunload handler always sees the latest phase
-  useEffect(() => { phaseRef.current = phase })
-
-  // Persist remaining time when the tab is closed during an active/paused session
+  // On mount, restore the most recent active session from the DB
   useEffect(() => {
-    function handleUnload() {
-      const p = phaseRef.current
-      if (p.phase !== 'active' && p.phase !== 'paused') return
-      endSession(p.sessionId, p.remainingSeconds)
-    }
-    window.addEventListener('beforeunload', handleUnload)
-    return () => window.removeEventListener('beforeunload', handleUnload)
-  }, [endSession])
+    fetchSessions().then((data) => {
+      if (data.length === 0) return
+      setPhase((current) => {
+        if (current.phase !== 'inactive') return current
+        const session = data[0]
+        return {
+          phase: 'active',
+          sessionId: session.id,
+          intention: session.intention,
+          companionTask: pickRandom(COMPANION_TASKS),
+          remainingSeconds: computeRemainingSeconds(session),
+        }
+      })
+    }).catch(() => { /* best-effort */ })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown tick
   useEffect(() => {
@@ -384,7 +387,7 @@ export default function CompanionWidget({ user }: { user: string }) {
       sessionId: session.id,
       intention: session.intention,
       companionTask: pickRandom(COMPANION_TASKS),
-      remainingSeconds: session.remainingSeconds ?? session.plannedDurationSeconds,
+      remainingSeconds: computeRemainingSeconds(session),
     })
   }
 

@@ -4,7 +4,13 @@ export type SessionRecord = {
   id: string
   intention: string
   plannedDurationSeconds: number
+  startedAt: string
   remainingSeconds: number | null
+}
+
+export function computeRemainingSeconds(session: SessionRecord): number {
+  const elapsed = Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 1000)
+  return Math.max(0, session.plannedDurationSeconds - elapsed)
 }
 
 export function useStartSession(user: string) {
