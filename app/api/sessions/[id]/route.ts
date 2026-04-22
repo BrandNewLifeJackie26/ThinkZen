@@ -17,7 +17,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return json({ error: 'body must be an object' }, 400)
   }
 
-  const { user, remainingSeconds } = body as Record<string, unknown>
+  const { user, remainingSeconds, end } = body as Record<string, unknown>
 
   if (!user || typeof user !== 'string') {
     return json({ error: 'user is required' }, 400)
@@ -57,7 +57,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const [updated] = await db
     .update(sessions)
-    .set({ endedAt: new Date(), remainingSeconds: resolvedRemainingSeconds })
+    .set({
+      remainingSeconds: resolvedRemainingSeconds,
+      ...(end === true && { endedAt: new Date() }),
+    })
     .where(and(eq(sessions.id, id), isNull(sessions.endedAt)))
     .returning()
 

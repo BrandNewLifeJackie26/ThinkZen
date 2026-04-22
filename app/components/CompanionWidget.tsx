@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { type SessionRecord, useStartSession, useEndSession, useFetchSessions, computeRemainingSeconds } from '@/app/hooks/sessions'
+import { type SessionRecord, useStartSession, usePauseSession, useEndSession, useFetchSessions } from '@/app/hooks/sessions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -243,8 +243,23 @@ export default function CompanionWidget({ user }: { user: string }) {
   const affirmingMessageRef = useRef<string>('')
 
   const startSessionApi = useStartSession(user)
+  const pauseSession = usePauseSession(user)
   const endSession = useEndSession(user)
   const fetchSessions = useFetchSessions(user)
+
+  const phaseRef = useRef(phase)
+  useEffect(() => { phaseRef.current = phase })
+
+  // Save remaining time when the tab is closed during an active/paused session
+  useEffect(() => {
+    function handleUnload() {
+      const p = phaseRef.current
+      if (p.phase !== 'active' && p.phase !== 'paused') return
+      pauseSession(p.sessionId, p.remainingSeconds)
+    }
+    window.addEventListener('beforeunload', handleUnload)
+    return () => window.removeEventListener('beforeunload', handleUnload)
+  }, [pauseSession])
 
   // On mount, restore the most recent active session from the DB
   useEffect(() => {
@@ -258,7 +273,7 @@ export default function CompanionWidget({ user }: { user: string }) {
           sessionId: session.id,
           intention: session.intention,
           companionTask: pickRandom(COMPANION_TASKS),
-          remainingSeconds: computeRemainingSeconds(session),
+          remainingSeconds: session.remainingSeconds ?? session.plannedDurationSeconds,
         }
       })
     }).catch(() => { /* best-effort */ })
@@ -387,7 +402,7 @@ export default function CompanionWidget({ user }: { user: string }) {
       sessionId: session.id,
       intention: session.intention,
       companionTask: pickRandom(COMPANION_TASKS),
-      remainingSeconds: computeRemainingSeconds(session),
+      remainingSeconds: session.remainingSeconds ?? session.plannedDurationSeconds,
     })
   }
 

@@ -4,13 +4,7 @@ export type SessionRecord = {
   id: string
   intention: string
   plannedDurationSeconds: number
-  startedAt: string
   remainingSeconds: number | null
-}
-
-export function computeRemainingSeconds(session: SessionRecord): number {
-  const elapsed = Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 1000)
-  return Math.max(0, session.plannedDurationSeconds - elapsed)
 }
 
 export function useStartSession(user: string) {
@@ -25,7 +19,7 @@ export function useStartSession(user: string) {
   )
 }
 
-export function useEndSession(user: string) {
+export function usePauseSession(user: string) {
   return useCallback(
     (sessionId: string, remainingSeconds: number) =>
       fetch(`/api/sessions/${sessionId}`, {
@@ -33,6 +27,18 @@ export function useEndSession(user: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user, remainingSeconds }),
         keepalive: true,
+      }),
+    [user]
+  )
+}
+
+export function useEndSession(user: string) {
+  return useCallback(
+    (sessionId: string, remainingSeconds: number) =>
+      fetch(`/api/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user, remainingSeconds, end: true }),
       }),
     [user]
   )
