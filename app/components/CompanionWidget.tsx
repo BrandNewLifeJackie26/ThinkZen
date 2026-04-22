@@ -1,15 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { type SessionRecord, useStartSession, useEndSession, useFetchSessions } from '@/app/hooks/sessions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type SessionRecord = {
-  id: string
-  intention: string
-  plannedDurationSeconds: number
-  remainingSeconds: number | null
-}
 
 type PausedSnapshot = {
   sessionId: string
@@ -56,43 +50,6 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-// ─── API hooks ────────────────────────────────────────────────────────────────
-
-function useStartSession(user: string) {
-  return useCallback(
-    (params: { intention: string; plannedDurationSeconds: number }) =>
-      fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user, ...params }),
-      }),
-    [user]
-  )
-}
-
-function useEndSession(user: string) {
-  return useCallback(
-    (sessionId: string, remainingSeconds: number) =>
-      fetch(`/api/sessions/${sessionId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user, remainingSeconds }),
-        keepalive: true,
-      }),
-    [user]
-  )
-}
-
-function useFetchSessions(user: string) {
-  return useCallback(
-    async (): Promise<SessionRecord[]> => {
-      const res = await fetch(`/api/sessions?user=${encodeURIComponent(user)}`)
-      return res.json()
-    },
-    [user]
-  )
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
