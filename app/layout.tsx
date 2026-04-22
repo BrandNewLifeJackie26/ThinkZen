@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   description: "Your personal thinking space",
 };
 
+const CURRENT_USER = 'demo'
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,7 +32,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <CompanionWidget />
+        <CompanionWidget user={CURRENT_USER} />
       </body>
     </html>
   );

@@ -1,18 +1,24 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { type SessionRecord, useStartSession, usePauseSession, useEndSession, useFetchSessions } from '@/app/hooks/sessions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type PausedSnapshot = { intention: string; companionTask: string; remainingSeconds: number }
+type PausedSnapshot = {
+  sessionId: string
+  intention: string
+  companionTask: string
+  remainingSeconds: number
+}
 
 type CompanionPhase =
   | { phase: 'inactive' }
   | { phase: 'planning'; companionTask: string }
-  | { phase: 'active'; intention: string; companionTask: string; remainingSeconds: number }
-  | { phase: 'paused'; intention: string; companionTask: string; remainingSeconds: number }
+  | { phase: 'active'; sessionId: string; intention: string; companionTask: string; remainingSeconds: number }
+  | { phase: 'paused'; sessionId: string; intention: string; companionTask: string; remainingSeconds: number }
   | { phase: 'switching'; prior?: PausedSnapshot }
-  | { phase: 'wrapping'; intention: string; companionTask: string }
+  | { phase: 'wrapping'; sessionId: string; intention: string; companionTask: string; remainingSeconds: number }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -30,12 +36,6 @@ const AFFIRMING_MESSAGES = [
   'Another session done. Well done!',
   'Keep the momentum going!',
 ] as const
-
-const MOCK_SESSIONS: { id: string; intention: string; remainingMinutes: number }[] = [
-  { id: 'mock-1', intention: 'Writing chapter 3', remainingMinutes: 25 },
-  { id: 'mock-2', intention: 'Reviewing pull requests', remainingMinutes: 45 },
-  { id: 'mock-3', intention: 'Deep work on auth system', remainingMinutes: 12 },
-]
 
 const WRAP_UP_DELAY_MS = 1800
 const DEFAULT_DURATION_MINUTES = 25
@@ -58,6 +58,7 @@ function PlanningModal({
   companionTask,
   intention,
   duration,
+  startError,
   onIntentionChange,
   onDurationChange,
   onStart,
@@ -67,6 +68,7 @@ function PlanningModal({
   companionTask: string
   intention: string
   duration: number
+  startError: string | null
   onIntentionChange: (v: string) => void
   onDurationChange: (v: number) => void
   onStart: () => void
@@ -122,6 +124,9 @@ function PlanningModal({
           />
           <span className="text-xs text-gray-500">min</span>
         </div>
+        {startError && (
+          <p className="w-full text-xs text-red-500 text-center">{startError}</p>
+        )}
         <button
           className="w-full py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={onStart}
@@ -150,11 +155,13 @@ function PlanningModal({
 
 function SessionSwitcher({
   sessions,
+  loading,
   onSelect,
   onCancel,
 }: {
-  sessions: { id: string; intention: string; remainingMinutes: number }[]
-  onSelect: (session: { id: string; intention: string; remainingMinutes: number }) => void
+  sessions: SessionRecord[]
+  loading: boolean
+  onSelect: (session: SessionRecord) => void
   onCancel: () => void
 }) {
   const [visible, setVisible] = useState(false)
@@ -163,6 +170,38 @@ function SessionSwitcher({
     const id = requestAnimationFrame(() => setVisible(true))
     return () => cancelAnimationFrame(id)
   }, [])
+
+  function renderBody() {
+    if (loading) {
+      return (
+        <div className="flex justify-center py-4">
+          <div className="w-5 h-5 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />
+        </div>
+      )
+    }
+    if (sessions.length === 0) {
+      return <p className="text-sm text-gray-400 text-center py-2">No other sessions to resume.</p>
+    }
+    return (
+      <ul className="flex flex-col gap-2">
+        {sessions.map((s) => {
+          const remaining = s.remainingSeconds ?? s.plannedDurationSeconds
+          const remainingMin = Math.ceil(remaining / 60)
+          return (
+            <li key={s.id}>
+              <button
+                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                onClick={() => onSelect(s)}
+              >
+                <p className="text-sm font-medium text-gray-800 truncate">{s.intention}</p>
+                <p className="text-xs text-indigo-500 mt-0.5">{remainingMin} min remaining</p>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    )
+  }
 
   return (
     <div
@@ -180,19 +219,7 @@ function SessionSwitcher({
             Pick a session to resume
           </p>
         </div>
-        <ul className="flex flex-col gap-2">
-          {sessions.map((s) => (
-            <li key={s.id}>
-              <button
-                className="w-full text-left px-4 py-3 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
-                onClick={() => onSelect(s)}
-              >
-                <p className="text-sm font-medium text-gray-800 truncate">{s.intention}</p>
-                <p className="text-xs text-indigo-500 mt-0.5">{s.remainingMinutes} min remaining</p>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {renderBody()}
         <button
           className="text-xs text-gray-400 hover:text-gray-600 transition-colors self-center"
           onClick={onCancel}
@@ -206,11 +233,51 @@ function SessionSwitcher({
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function CompanionWidget() {
+export default function CompanionWidget({ user }: { user: string }) {
   const [phase, setPhase] = useState<CompanionPhase>({ phase: 'inactive' })
   const [intention, setIntention] = useState('')
   const [duration, setDuration] = useState(DEFAULT_DURATION_MINUTES)
+  const [startError, setStartError] = useState<string | null>(null)
+  const [sessions, setSessions] = useState<SessionRecord[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
   const affirmingMessageRef = useRef<string>('')
+
+  const startSessionApi = useStartSession(user)
+  const pauseSession = usePauseSession(user)
+  const endSession = useEndSession(user)
+  const fetchSessions = useFetchSessions(user)
+
+  const phaseRef = useRef(phase)
+  useEffect(() => { phaseRef.current = phase })
+
+  // Save remaining time when the tab is closed during an active/paused session
+  useEffect(() => {
+    function handleUnload() {
+      const p = phaseRef.current
+      if (p.phase !== 'active' && p.phase !== 'paused') return
+      pauseSession(p.sessionId, p.remainingSeconds)
+    }
+    window.addEventListener('beforeunload', handleUnload)
+    return () => window.removeEventListener('beforeunload', handleUnload)
+  }, [pauseSession])
+
+  // On mount, restore the most recent active session from the DB
+  useEffect(() => {
+    fetchSessions().then((data) => {
+      if (data.length === 0) return
+      setPhase((current) => {
+        if (current.phase !== 'inactive') return current
+        const session = data[0]
+        return {
+          phase: 'active',
+          sessionId: session.id,
+          intention: session.intention,
+          companionTask: pickRandom(COMPANION_TASKS),
+          remainingSeconds: session.remainingSeconds ?? session.plannedDurationSeconds,
+        }
+      })
+    }).catch(() => { /* best-effort */ })
+  }, [fetchSessions])
 
   // Countdown tick
   useEffect(() => {
@@ -220,7 +287,13 @@ export default function CompanionWidget() {
         if (prev.phase !== 'active') return prev
         if (prev.remainingSeconds <= 1) {
           affirmingMessageRef.current = pickRandom(AFFIRMING_MESSAGES)
-          return { phase: 'wrapping', intention: prev.intention, companionTask: prev.companionTask }
+          return {
+            phase: 'wrapping',
+            sessionId: prev.sessionId,
+            intention: prev.intention,
+            companionTask: prev.companionTask,
+            remainingSeconds: 0,
+          }
         }
         return { ...prev, remainingSeconds: prev.remainingSeconds - 1 }
       })
@@ -228,25 +301,49 @@ export default function CompanionWidget() {
     return () => clearInterval(id)
   }, [phase.phase])
 
-  // Auto-dismiss wrapping state
+  // End session in DB when wrapping, then auto-dismiss
   useEffect(() => {
     if (phase.phase !== 'wrapping') return
+    const { sessionId, remainingSeconds } = phase
+    endSession(sessionId, remainingSeconds).catch(console.error)
     const id = setTimeout(() => setPhase({ phase: 'inactive' }), WRAP_UP_DELAY_MS)
     return () => clearTimeout(id)
-  }, [phase.phase])
+  }, [phase, endSession])
 
   function openPlanning() {
     setIntention('')
     setDuration(DEFAULT_DURATION_MINUTES)
+    setStartError(null)
     setPhase({ phase: 'planning', companionTask: pickRandom(COMPANION_TASKS) })
   }
 
-  function startSession() {
+  async function startSession() {
     if (!intention.trim() || phase.phase !== 'planning') return
+    const companionTask = phase.companionTask
+    setStartError(null)
+
+    const res = await startSessionApi({
+      intention: intention.trim(),
+      plannedDurationSeconds: duration * 60,
+    })
+
+    if (res.status === 409) {
+      // Already have an active session — redirect to switcher
+      openSwitcher()
+      return
+    }
+
+    if (!res.ok) {
+      setStartError('Failed to start session. Please try again.')
+      return
+    }
+
+    const session = await res.json()
     setPhase({
       phase: 'active',
+      sessionId: session.id,
       intention: intention.trim(),
-      companionTask: phase.companionTask,
+      companionTask,
       remainingSeconds: duration * 60,
     })
   }
@@ -255,6 +352,7 @@ export default function CompanionWidget() {
     if (phase.phase !== 'active') return
     setPhase({
       phase: 'paused',
+      sessionId: phase.sessionId,
       intention: phase.intention,
       companionTask: phase.companionTask,
       remainingSeconds: phase.remainingSeconds,
@@ -265,26 +363,46 @@ export default function CompanionWidget() {
     if (phase.phase !== 'paused') return
     setPhase({
       phase: 'active',
+      sessionId: phase.sessionId,
       intention: phase.intention,
       companionTask: phase.companionTask,
       remainingSeconds: phase.remainingSeconds,
     })
   }
 
-  function openSwitcher() {
+  async function openSwitcher() {
     const prior: PausedSnapshot | undefined =
       phase.phase === 'paused'
-        ? { intention: phase.intention, companionTask: phase.companionTask, remainingSeconds: phase.remainingSeconds }
+        ? {
+            sessionId: phase.sessionId,
+            intention: phase.intention,
+            companionTask: phase.companionTask,
+            remainingSeconds: phase.remainingSeconds,
+          }
         : undefined
+
     setPhase({ phase: 'switching', prior })
+    setSessionsLoading(true)
+
+    try {
+      const data = await fetchSessions()
+      // Exclude the currently paused session from the list
+      const filtered = prior ? data.filter((s) => s.id !== prior.sessionId) : data
+      setSessions(filtered)
+    } catch {
+      setSessions([])
+    } finally {
+      setSessionsLoading(false)
+    }
   }
 
-  function selectSession(session: { id: string; intention: string; remainingMinutes: number }) {
+  function selectSession(session: SessionRecord) {
     setPhase({
       phase: 'active',
+      sessionId: session.id,
       intention: session.intention,
       companionTask: pickRandom(COMPANION_TASKS),
-      remainingSeconds: session.remainingMinutes * 60,
+      remainingSeconds: session.remainingSeconds ?? session.plannedDurationSeconds,
     })
   }
 
@@ -300,7 +418,13 @@ export default function CompanionWidget() {
   function handleWrapUp() {
     if (phase.phase !== 'active' && phase.phase !== 'paused') return
     affirmingMessageRef.current = pickRandom(AFFIRMING_MESSAGES)
-    setPhase({ phase: 'wrapping', intention: phase.intention, companionTask: phase.companionTask })
+    setPhase({
+      phase: 'wrapping',
+      sessionId: phase.sessionId,
+      intention: phase.intention,
+      companionTask: phase.companionTask,
+      remainingSeconds: phase.remainingSeconds,
+    })
   }
 
   function handleDismiss() {
@@ -334,6 +458,7 @@ export default function CompanionWidget() {
           companionTask={phase.companionTask}
           intention={intention}
           duration={duration}
+          startError={startError}
           onIntentionChange={setIntention}
           onDurationChange={setDuration}
           onStart={startSession}
@@ -351,7 +476,8 @@ export default function CompanionWidget() {
       <>
         <div className="fixed inset-0 z-30 bg-black/40" onClick={cancelSwitcher} />
         <SessionSwitcher
-          sessions={MOCK_SESSIONS}
+          sessions={sessions}
+          loading={sessionsLoading}
           onSelect={selectSession}
           onCancel={cancelSwitcher}
         />
