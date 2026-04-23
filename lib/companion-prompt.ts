@@ -37,7 +37,7 @@ export const sessionStartSchema = z.object({
   icon: z
     .string()
     .describe(
-      'A single emoji that represents the companion\'s task/mood (e.g. 📚 🎯 💡 🔍 📝 ✨ 🌱 🧩 💻 🎨)',
+      'A single animal or creature emoji that serves as the companion\'s avatar (e.g. 🦊 🐨 🦋 🦁 🐸 🦉 🐺 🦝 🐧 🦅)',
     ),
   tone: z
     .enum(['focused', 'energetic', 'calm', 'playful', 'steady'])
