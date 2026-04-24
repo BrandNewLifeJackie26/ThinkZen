@@ -2,7 +2,9 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+First, ThinkZen relies on AI to provide better personalized guidance for users, make sure you add anthropic key to `ANTHROPIC_API_KEY` in your environment variable.
+
+Then run the development server:
 
 ```bash
 npm run dev
