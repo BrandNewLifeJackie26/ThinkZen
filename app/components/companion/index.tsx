@@ -121,37 +121,10 @@ export default function CompanionWidget({ user }: { user: string }) {
     return () => clearInterval(id)
   }, [phase.phase])
 
-  // Planning guidance: debounced call when intention or duration changes
+  // Clear guidance when the intention changes so the hint button reappears
   useEffect(() => {
-    if (phase.phase !== 'planning' || !intention.trim()) {
-      setPlanningGuidance(null)
-      setPlanningGuidanceLoading(false)
-      return
-    }
-
-    setPlanningGuidanceLoading(true)
     setPlanningGuidance(null)
-    let cancelled = false
-
-    const id = setTimeout(() => {
-      getPlanningMessage({ intention, durationSeconds: duration * 60 })
-        .then((result) => {
-          if (!cancelled) {
-            setPlanningGuidance(result)
-            setPlanningGuidanceLoading(false)
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setPlanningGuidanceLoading(false)
-        })
-    }, 800)
-
-    return () => {
-      cancelled = true
-      clearTimeout(id)
-      setPlanningGuidanceLoading(false)
-    }
-  }, [intention, duration, phase.phase, getPlanningMessage])
+  }, [intention])
 
   // Subtask rotation: advance current subtask index on a per-subtask interval
   useEffect(() => {
@@ -242,6 +215,18 @@ export default function CompanionWidget({ user }: { user: string }) {
   }, [wrapUpMessage, wrapUpLoading])
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
+
+  function requestGuidance() {
+    if (!intention.trim()) return
+    setPlanningGuidanceLoading(true)
+    setPlanningGuidance(null)
+    getPlanningMessage({ intention, durationSeconds: duration * 60 })
+      .then((result) => {
+        setPlanningGuidance(result)
+        setPlanningGuidanceLoading(false)
+      })
+      .catch(() => setPlanningGuidanceLoading(false))
+  }
 
   function openPlanning() {
     setIntention('')
@@ -435,6 +420,7 @@ export default function CompanionWidget({ user }: { user: string }) {
           onIntentionChange={setIntention}
           onDurationChange={setDuration}
           onSuggestedDuration={(min) => setDuration(min)}
+          onRequestGuidance={requestGuidance}
           onStart={startSession}
           onCancel={() => setPhase({ phase: 'inactive' })}
           onSwitchSessions={openSwitcher}

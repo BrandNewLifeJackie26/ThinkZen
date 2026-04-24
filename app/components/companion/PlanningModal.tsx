@@ -14,6 +14,7 @@ export function PlanningModal({
   onIntentionChange,
   onDurationChange,
   onSuggestedDuration,
+  onRequestGuidance,
   onStart,
   onCancel,
   onSwitchSessions,
@@ -28,6 +29,7 @@ export function PlanningModal({
   onIntentionChange: (v: string) => void
   onDurationChange: (v: number) => void
   onSuggestedDuration: (min: number) => void
+  onRequestGuidance: () => void
   onStart: () => void
   onCancel: () => void
   onSwitchSessions: () => void
@@ -69,8 +71,17 @@ export function PlanningModal({
         />
 
         {/* AI planning guidance */}
-        <div className="w-full min-h-[2.5rem]">
-          {guidanceLoading && intention.trim() && (
+        <div className="w-full">
+          {!guidance && !guidanceLoading && intention.trim() && (
+            <button
+              className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors disabled:opacity-50"
+              onClick={onRequestGuidance}
+              disabled={isStarting}
+            >
+              ✦ Help me schedule this
+            </button>
+          )}
+          {guidanceLoading && (
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <div className="w-3 h-3 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin flex-shrink-0" />
               <span>Thinking...</span>

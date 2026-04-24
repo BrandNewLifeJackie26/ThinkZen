@@ -15,10 +15,8 @@ export const planningSchema = z.object({
   guidance: z.string().describe('Brief coaching note on task scope or time fit (1 sentence)'),
   suggestedDuration: z
     .number()
-    .int()
-    .positive()
     .optional()
-    .describe('Suggested duration in minutes if the current one seems off'),
+    .describe('Suggested duration in minutes if the current one seems off (must be positive)'),
   shouldSplit: z
     .boolean()
     .optional()
