@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import Link from 'next/link'
 import TagChip from './TagChip'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -140,13 +141,22 @@ export default function ThoughtsClient({ initialThoughts }: { initialThoughts: S
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="text-indigo-600 font-bold text-lg tracking-tight">✦ ThinkZen</span>
-          <button
-            onClick={openNew}
-            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-          >
-            <span className="text-base leading-none">+</span>
-            New Thought
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/zoo"
+              className="flex items-center gap-1.5 border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-800 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              <span className="text-base leading-none">🐾</span>
+              My Zoo
+            </Link>
+            <button
+              onClick={openNew}
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              <span className="text-base leading-none">+</span>
+              New Thought
+            </button>
+          </div>
         </div>
       </header>
 
