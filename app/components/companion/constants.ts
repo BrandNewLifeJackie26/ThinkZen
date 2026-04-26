@@ -19,3 +19,35 @@ export const TONE_STYLES: Record<Tone, { bg: string; text: string }> = {
   playful: { bg: 'bg-purple-100', text: 'text-purple-600' },
   steady: { bg: 'bg-green-100', text: 'text-green-600' },
 }
+
+export const ANIMAL_NAMES: Record<string, string> = {
+  '🐧': 'Penguin',
+  '🦊': 'Fox',
+  '🐺': 'Wolf',
+  '🦁': 'Lion',
+  '🐯': 'Tiger',
+  '🐻': 'Bear',
+  '🐼': 'Panda',
+  '🐨': 'Koala',
+  '🦝': 'Raccoon',
+  '🦔': 'Hedgehog',
+  '🐰': 'Bunny',
+  '🐱': 'Cat',
+  '🐶': 'Dog',
+  '🦄': 'Unicorn',
+  '🐸': 'Frog',
+  '🦉': 'Owl',
+  '🦋': 'Butterfly',
+  '🐢': 'Turtle',
+  '🐙': 'Octopus',
+  '🦜': 'Parrot',
+  '🐬': 'Dolphin',
+  '🦭': 'Seal',
+  '🐘': 'Elephant',
+  '🦒': 'Giraffe',
+  '🦓': 'Zebra',
+}
+
+export function getAnimalName(emoji: string): string {
+  return ANIMAL_NAMES[emoji] ?? 'Mystery Creature'
+}

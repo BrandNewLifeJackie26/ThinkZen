@@ -10,6 +10,7 @@ import {
   useAmbientMessage,
   useSessionEndMessage,
 } from '@/app/hooks/companion'
+import { useRecordEncounter } from '@/app/hooks/animals'
 import { pickRandom, formatTime, readStream } from '@/app/components/utils'
 import type { PausedSnapshot, CompanionPhase } from './types'
 import {
@@ -18,6 +19,7 @@ import {
   WRAP_UP_DELAY_MS,
   AMBIENT_TRIGGER_SECONDS,
   TONE_STYLES,
+  getAnimalName,
 } from './constants'
 import { PlanningModal } from './PlanningModal'
 import { SessionSwitcher } from './SessionSwitcher'
@@ -49,10 +51,14 @@ export default function CompanionWidget({ user }: { user: string }) {
   const [wrapUpLoading, setWrapUpLoading] = useState(false)
   const wrapUpStartedRef = useRef(false)
 
+  // Encounter celebration shown during wrap-up
+  const [encounterAnimal, setEncounterAnimal] = useState<{ emoji: string; name: string } | null>(null)
+
   const startSessionApi = useStartSession(user)
   const pauseSession = usePauseSession(user)
   const endSession = useEndSession(user)
   const fetchSessions = useFetchSessions(user)
+  const recordEncounter = useRecordEncounter(user)
 
   const getPlanningMessage = usePlanningMessage()
   const getSessionStartMessage = useSessionStartMessage()
@@ -80,13 +86,15 @@ export default function CompanionWidget({ user }: { user: string }) {
       setPhase((current) => {
         if (current.phase !== 'inactive') return current
         const session = data[0]
+        const icon = '🐧'
         return {
           phase: 'active',
           sessionId: session.id,
           intention: session.intention,
           companionTask: pickRandom(COMPANION_TASKS),
           subtasks: [],
-          icon: '🐧',
+          icon,
+          animalName: getAnimalName(icon),
           tone: 'steady' as Tone,
           currentSubtaskIdx: 0,
           remainingSeconds: session.remainingSeconds ?? session.plannedDurationSeconds,
@@ -110,6 +118,7 @@ export default function CompanionWidget({ user }: { user: string }) {
             companionTask: prev.companionTask,
             subtasks: prev.subtasks,
             icon: prev.icon,
+            animalName: prev.animalName,
             tone: prev.tone,
             remainingSeconds: 0,
             durationSeconds: prev.durationSeconds,
@@ -174,7 +183,7 @@ export default function CompanionWidget({ user }: { user: string }) {
     return () => clearInterval(id)
   }, [phase.phase, getAmbientMessage])
 
-  // Wrap-up: call end session API + fetch AI closing message
+  // Wrap-up: call end session API + fetch AI closing message + record encounter
   useEffect(() => {
     if (phase.phase !== 'wrapping') {
       wrapUpStartedRef.current = false
@@ -183,11 +192,13 @@ export default function CompanionWidget({ user }: { user: string }) {
     if (wrapUpStartedRef.current) return
     wrapUpStartedRef.current = true
 
-    const { sessionId, remainingSeconds, intention: wrapIntention, companionTask, durationSeconds } = phase
+    const { sessionId, remainingSeconds, intention: wrapIntention, companionTask, durationSeconds, icon, animalName } = phase
 
     setWrapUpLoading(true)
     setWrapUpMessage('')
+    setEncounterAnimal({ emoji: icon, name: animalName })
     endSession(sessionId, remainingSeconds).catch(console.error)
+    recordEncounter({ sessionId, animalEmoji: icon, animalName })
 
     const signal = { cancelled: false }
     getSessionEndMessage({
@@ -205,12 +216,15 @@ export default function CompanionWidget({ user }: { user: string }) {
       })
 
     return () => { signal.cancelled = true }
-  }, [phase, endSession, getSessionEndMessage])
+  }, [phase, endSession, getSessionEndMessage, recordEncounter])
 
   // Auto-dismiss wrap-up after message is shown
   useEffect(() => {
     if (!wrapUpMessage || wrapUpLoading) return
-    const id = setTimeout(() => setPhase({ phase: 'inactive' }), WRAP_UP_DELAY_MS)
+    const id = setTimeout(() => {
+      setPhase({ phase: 'inactive' })
+      setEncounterAnimal(null)
+    }, WRAP_UP_DELAY_MS + 3000)
     return () => clearTimeout(id)
   }, [wrapUpMessage, wrapUpLoading])
 
@@ -269,6 +283,7 @@ export default function CompanionWidget({ user }: { user: string }) {
         companionTask: aiData.companionTask,
         subtasks: aiData.subtasks,
         icon: aiData.icon,
+        animalName: getAnimalName(aiData.icon),
         tone: aiData.tone,
         currentSubtaskIdx: 0,
         remainingSeconds: duration * 60,
@@ -290,6 +305,7 @@ export default function CompanionWidget({ user }: { user: string }) {
       companionTask: phase.companionTask,
       subtasks: phase.subtasks,
       icon: phase.icon,
+      animalName: phase.animalName,
       tone: phase.tone,
       currentSubtaskIdx: phase.currentSubtaskIdx,
       remainingSeconds: phase.remainingSeconds,
@@ -306,6 +322,7 @@ export default function CompanionWidget({ user }: { user: string }) {
       companionTask: phase.companionTask,
       subtasks: phase.subtasks,
       icon: phase.icon,
+      animalName: phase.animalName,
       tone: phase.tone,
       currentSubtaskIdx: phase.currentSubtaskIdx,
       remainingSeconds: phase.remainingSeconds,
@@ -322,6 +339,7 @@ export default function CompanionWidget({ user }: { user: string }) {
             companionTask: phase.companionTask,
             subtasks: phase.subtasks,
             icon: phase.icon,
+            animalName: phase.animalName,
             tone: phase.tone,
             currentSubtaskIdx: phase.currentSubtaskIdx,
             remainingSeconds: phase.remainingSeconds,
@@ -344,13 +362,15 @@ export default function CompanionWidget({ user }: { user: string }) {
   }
 
   function selectSession(session: SessionRecord) {
+    const icon = '🐧'
     setPhase({
       phase: 'active',
       sessionId: session.id,
       intention: session.intention,
       companionTask: pickRandom(COMPANION_TASKS),
       subtasks: [],
-      icon: '🐧',
+      icon,
+      animalName: getAnimalName(icon),
       tone: 'steady' as Tone,
       currentSubtaskIdx: 0,
       remainingSeconds: session.remainingSeconds ?? session.plannedDurationSeconds,
@@ -376,6 +396,7 @@ export default function CompanionWidget({ user }: { user: string }) {
       companionTask: phase.companionTask,
       subtasks: phase.subtasks,
       icon: phase.icon,
+      animalName: phase.animalName,
       tone: phase.tone,
       remainingSeconds: phase.remainingSeconds,
       durationSeconds: phase.durationSeconds,
@@ -384,6 +405,7 @@ export default function CompanionWidget({ user }: { user: string }) {
 
   function handleDismiss() {
     setPhase({ phase: 'inactive' })
+    setEncounterAnimal(null)
   }
 
   // ── inactive ──────────────────────────────────────────────────────────────────
@@ -581,6 +603,23 @@ export default function CompanionWidget({ user }: { user: string }) {
       ) : (
         <p className="text-sm font-medium text-center text-gray-700">{wrapUpMessage}</p>
       )}
+
+      {/* Encounter celebration */}
+      {encounterAnimal && !wrapUpLoading && (
+        <div className="w-full rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2.5 flex flex-col items-center gap-1">
+          <span className="text-2xl">{encounterAnimal.emoji}</span>
+          <p className="text-xs font-semibold text-indigo-700 text-center">
+            {encounterAnimal.name} joined your collection!
+          </p>
+          <a
+            href="/zoo"
+            className="text-xs text-indigo-500 hover:text-indigo-700 underline underline-offset-2 transition-colors"
+          >
+            Visit your zoo →
+          </a>
+        </div>
+      )}
+
       <button
         className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
         onClick={handleDismiss}
