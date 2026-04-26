@@ -43,7 +43,7 @@ export function PlanningModal({
 
   return (
     <div
-      className={`fixed bottom-24 right-6 z-40 w-80 bg-white rounded-2xl shadow-2xl p-6 transition-all duration-300 ${
+      className={`fixed bottom-24 right-6 z-40 w-80 max-h-[calc(100vh-7rem)] overflow-y-auto bg-white rounded-2xl shadow-2xl p-6 transition-all duration-300 ${
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
       }`}
       role="dialog"

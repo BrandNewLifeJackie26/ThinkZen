@@ -460,7 +460,7 @@ export default function CompanionWidget({ user }: { user: string }) {
             onDismiss={() => setAmbientMessage(null)}
           />
         )}
-        <div className="fixed bottom-6 right-6 z-30 w-64 bg-white rounded-2xl shadow-xl border border-indigo-100 p-4 flex flex-col gap-3">
+        <div className="fixed bottom-6 right-6 z-30 w-64 max-h-[calc(100vh-3.5rem)] overflow-y-auto bg-white rounded-2xl shadow-xl border border-indigo-100 p-4 flex flex-col gap-3">
           {/* Opening message */}
           {openingMessage && (
             <div className="bg-indigo-50 rounded-lg px-3 py-2.5 flex items-start gap-2">
@@ -480,12 +480,12 @@ export default function CompanionWidget({ user }: { user: string }) {
             <span className="text-3xl select-none animate-bounce" aria-hidden="true">{phase.icon}</span>
             <div className="flex flex-col min-w-0 flex-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs text-gray-400">working on...</span>
+                <span className="text-xs text-gray-400">I'm working on...</span>
                 <span className={`text-xs px-1.5 py-0.5 rounded-full capitalize ${toneStyle.bg} ${toneStyle.text}`}>
                   {phase.tone}
                 </span>
               </div>
-              <span className="text-sm font-medium text-gray-700 truncate">{phase.companionTask}</span>
+              <span className="text-sm font-medium text-gray-700 line-clamp-2" title={phase.companionTask}>{phase.companionTask}</span>
               {currentSubtask && (
                 <span className="text-xs text-gray-400 truncate">↳ {currentSubtask}</span>
               )}
@@ -495,7 +495,7 @@ export default function CompanionWidget({ user }: { user: string }) {
           {/* User intention */}
           <div className="border-t border-gray-100 pt-3 flex flex-col gap-1">
             <span className="text-xs text-gray-400">you&apos;re working on...</span>
-            <p className="text-sm text-gray-800 line-clamp-2">{phase.intention}</p>
+            <p className="text-sm text-gray-800 line-clamp-2" title={phase.intention}>{phase.intention}</p>
           </div>
 
           {/* Timer + pause */}
@@ -526,17 +526,17 @@ export default function CompanionWidget({ user }: { user: string }) {
 
   if (phase.phase === 'paused') {
     return (
-      <div className="fixed bottom-6 right-6 z-30 w-64 bg-white rounded-2xl shadow-xl border border-amber-100 p-4 flex flex-col gap-3">
+      <div className="fixed bottom-6 right-6 z-30 w-64 max-h-[calc(100vh-3.5rem)] overflow-y-auto bg-white rounded-2xl shadow-xl border border-amber-100 p-4 flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <span className="text-3xl select-none" aria-hidden="true">{phase.icon}</span>
           <div className="flex flex-col min-w-0">
             <span className="text-xs text-amber-500">taking a break...</span>
-            <span className="text-sm font-medium text-gray-700 truncate">{phase.companionTask}</span>
+            <span className="text-sm font-medium text-gray-700 line-clamp-2" title={phase.companionTask}>{phase.companionTask}</span>
           </div>
         </div>
         <div className="border-t border-gray-100 pt-3 flex flex-col gap-1">
           <span className="text-xs text-gray-400">you were working on...</span>
-          <p className="text-sm text-gray-800 line-clamp-2">{phase.intention}</p>
+          <p className="text-sm text-gray-800 line-clamp-2" title={phase.intention}>{phase.intention}</p>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-2xl font-mono font-semibold text-amber-500 tabular-nums">
