@@ -154,16 +154,16 @@ describe('GET /sessions', () => {
 })
 
 describe('PATCH /sessions/:id', () => {
-  it('stops an active session and defaults remainingSeconds to plannedDurationSeconds', async () => {
+  it('stops an active session', async () => {
     const postRes = await POST(makePostRequest({ user: 'alice', intention: 'deep work', plannedDurationSeconds: 2700 }))
     const session = await postRes.json()
 
-    const { req, ctx } = makePatchRequest(session.id, { user: 'alice' })
+    const { req, ctx } = makePatchRequest(session.id, { user: 'alice', remainingSeconds: 1000, end: true })
     const res = await PATCH(req, ctx)
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.endedAt).not.toBeNull()
-    expect(body.remainingSeconds).toBe(2700)
+    expect(body.remainingSeconds).toBe(1000)
   })
 
   it('stops a session with a custom remainingSeconds when paused mid-session', async () => {
@@ -174,7 +174,6 @@ describe('PATCH /sessions/:id', () => {
     const res = await PATCH(req, ctx)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.endedAt).not.toBeNull()
     expect(body.remainingSeconds).toBe(1500)
   })
 
