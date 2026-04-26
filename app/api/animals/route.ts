@@ -33,7 +33,7 @@ export async function POST(req: Request): Promise<Response> {
     return json({ error: 'body must be an object' }, 400)
   }
 
-  const { userId, sessionId, animalEmoji, animalName } = body as Record<string, unknown>
+  const { userId, sessionId, animalEmoji, encounteredAt } = body as Record<string, unknown>
 
   if (!userId || typeof userId !== 'string') {
     return json({ error: 'userId is required' }, 400)
@@ -44,8 +44,8 @@ export async function POST(req: Request): Promise<Response> {
   if (!animalEmoji || typeof animalEmoji !== 'string') {
     return json({ error: 'animalEmoji is required' }, 400)
   }
-  if (!animalName || typeof animalName !== 'string') {
-    return json({ error: 'animalName is required' }, 400)
+  if (!encounteredAt || typeof encounteredAt !== 'number' || !Number.isFinite(encounteredAt)) {
+    return json({ error: 'encounteredAt must be a valid unix timestamp' }, 400)
   }
 
   const [inserted] = await db
@@ -55,8 +55,7 @@ export async function POST(req: Request): Promise<Response> {
       userId,
       sessionId,
       animalEmoji,
-      animalName,
-      encounteredAt: new Date(),
+      encounteredAt: new Date(encounteredAt),
     })
     .returning()
 

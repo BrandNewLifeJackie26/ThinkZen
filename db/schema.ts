@@ -32,6 +32,5 @@ export const animalEncounters = sqliteTable('animal_encounters', {
   userId: text('user_id').notNull(),
   sessionId: text('session_id').notNull(),
   animalEmoji: text('animal_emoji').notNull(),
-  animalName: text('animal_name').notNull(),
   encounteredAt: integer('encountered_at', { mode: 'timestamp' }).notNull(),
 })
