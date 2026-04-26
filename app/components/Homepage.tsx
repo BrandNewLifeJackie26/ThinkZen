@@ -59,7 +59,7 @@ async function saveThought(content: string, tags: string[]): Promise<void> {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ThoughtsClient({ initialThoughts }: { initialThoughts: SerializedThought[] }) {
+export default function Homepage({ initialThoughts }: { initialThoughts: SerializedThought[] }) {
   // List state
   const [thoughts, setThoughts] = useState<SerializedThought[]>(initialThoughts)
   const [hasMore, setHasMore] = useState(initialThoughts.length === PAGE_SIZE)
