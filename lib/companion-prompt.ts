@@ -15,10 +15,8 @@ export const planningSchema = z.object({
   guidance: z.string().describe('Brief coaching note on task scope or time fit (1 sentence)'),
   suggestedDuration: z
     .number()
-    .int()
-    .positive()
     .optional()
-    .describe('Suggested duration in minutes if the current one seems off'),
+    .describe('Suggested duration in minutes if the current one seems off (must be positive)'),
   shouldSplit: z
     .boolean()
     .optional()
@@ -31,9 +29,8 @@ export const sessionStartSchema = z.object({
     .describe('What the companion is working on — a realistic, specific task (5–8 words)'),
   subtasks: z
     .array(z.string())
-    .min(2)
-    .max(4)
-    .describe('Ordered list of sub-steps the companion will move through during the session'),
+    .min(1)
+    .describe('Ordered list of sub-steps the companion will move through during the session, max 4 subtasks — must be creature-appropriate actions, not human work tasks'),
   icon: z
     .string()
     .describe(
@@ -72,13 +69,14 @@ export function buildSessionStartPrompt(intention: string, durationSeconds: numb
 The user just started a ${durationMin}-minute focus session.
 Their intention: "${intention}"
 
-Pick a parallel task for yourself that:
-- Is realistic and specific (not generic like "organizing ideas")
-- Has 2–4 meaningful sub-steps that could fill ${durationMin} minutes
-- Feels like real, grounded work (reading, writing, reviewing, planning something concrete)
-- Complements the user's energy without copying their task
+Choose an animal or creature avatar (icon) as the companion, then pick a task that:
+- Is something that animal would actually do (e.g. an owl "deciding which branch to perch on", a fox "sniffing out the best trail")
+- Should be an action, don't prefix with the creature name (e.g. "deciding which branch to perch on", not "owl deciding which branch to perch on")
+- Is specific and vivid, not generic — 5–8 words
+- Can be lightly punny or playful
+- Has 2–4 sub-steps that feel natural
+- Must NOT mirror or be inspired by the user's intention — pick something independent
 
-Also choose an icon and tone that fit the session's mood.
 Write a warm one-sentence opening message acknowledging what the user is about to do.
 
 Respond with JSON matching the schema.`

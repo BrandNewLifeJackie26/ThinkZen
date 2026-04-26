@@ -1,5 +1,7 @@
 import { useCallback } from 'react'
 
+export type Tone = 'focused' | 'energetic' | 'calm' | 'playful' | 'steady'
+
 export type PlanningResult = {
   guidance: string
   suggestedDuration?: number
@@ -10,7 +12,7 @@ export type SessionStartResult = {
   companionTask: string
   subtasks: string[]
   icon: string
-  tone: 'focused' | 'energetic' | 'calm' | 'playful' | 'steady'
+  tone: Tone
   message: string
 }
 
