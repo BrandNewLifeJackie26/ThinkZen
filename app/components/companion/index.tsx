@@ -15,8 +15,10 @@ import { pickRandom, formatTime, readStream } from '@/app/components/utils'
 import type { PausedSnapshot, CompanionPhase } from './types'
 import {
   COMPANION_TASKS,
+  ANIMAL_EMOJIS,
   DEFAULT_DURATION_MINUTES,
   WRAP_UP_DELAY_MS,
+  ENCOUNTER_CELEBRATION_MS,
   AMBIENT_TRIGGER_SECONDS,
   TONE_STYLES,
   getAnimalName,
@@ -86,7 +88,7 @@ export default function CompanionWidget({ user }: { user: string }) {
       setPhase((current) => {
         if (current.phase !== 'inactive') return current
         const session = data[0]
-        const icon = '🐧'
+        const icon = pickRandom(ANIMAL_EMOJIS)
         return {
           phase: 'active',
           sessionId: session.id,
@@ -196,9 +198,12 @@ export default function CompanionWidget({ user }: { user: string }) {
 
     setWrapUpLoading(true)
     setWrapUpMessage('')
-    setEncounterAnimal({ emoji: icon, name: animalName })
-    endSession(sessionId, remainingSeconds).catch(console.error)
-    recordEncounter({ sessionId, animalEmoji: icon })
+    endSession(sessionId, remainingSeconds)
+      .then(() => {
+        setEncounterAnimal({ emoji: icon, name: animalName })
+        return recordEncounter({ sessionId, animalEmoji: icon })
+      })
+      .catch(console.error)
 
     const signal = { cancelled: false }
     getSessionEndMessage({
@@ -224,7 +229,7 @@ export default function CompanionWidget({ user }: { user: string }) {
     const id = setTimeout(() => {
       setPhase({ phase: 'inactive' })
       setEncounterAnimal(null)
-    }, WRAP_UP_DELAY_MS + 3000)
+    }, WRAP_UP_DELAY_MS + ENCOUNTER_CELEBRATION_MS)
     return () => clearTimeout(id)
   }, [wrapUpMessage, wrapUpLoading])
 
@@ -362,7 +367,7 @@ export default function CompanionWidget({ user }: { user: string }) {
   }
 
   function selectSession(session: SessionRecord) {
-    const icon = '🐧'
+    const icon = pickRandom(ANIMAL_EMOJIS)
     setPhase({
       phase: 'active',
       sessionId: session.id,

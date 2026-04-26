@@ -8,6 +8,41 @@ export function formatTime(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+export type AnimalGroup = {
+  animalEmoji: string
+  animalName: string
+  count: number
+  lastEncounteredAt: string
+}
+
+export function groupEncounters(
+  encounters: { animalEmoji: string; animalName: string; encounteredAt: string | number | Date }[]
+): AnimalGroup[] {
+  const map = new Map<string, AnimalGroup>()
+  for (const e of encounters) {
+    const iso = new Date(e.encounteredAt).toISOString()
+    const existing = map.get(e.animalEmoji)
+    if (existing) {
+      existing.count += 1
+      if (iso > existing.lastEncounteredAt) existing.lastEncounteredAt = iso
+    } else {
+      map.set(e.animalEmoji, {
+        animalEmoji: e.animalEmoji,
+        animalName: e.animalName,
+        count: 1,
+        lastEncounteredAt: iso,
+      })
+    }
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.lastEncounteredAt).getTime() - new Date(a.lastEncounteredAt).getTime()
+  )
+}
+
+export function formatEncounterDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export async function readStream(
   response: Response,
   onChunk: (accumulated: string) => void,

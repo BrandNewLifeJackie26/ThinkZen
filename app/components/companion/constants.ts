@@ -10,6 +10,7 @@ export const COMPANION_TASKS = [
 
 export const DEFAULT_DURATION_MINUTES = 25
 export const WRAP_UP_DELAY_MS = 2000
+export const ENCOUNTER_CELEBRATION_MS = 5000
 export const AMBIENT_TRIGGER_SECONDS = 1200 // 20 min
 
 export const TONE_STYLES: Record<Tone, { bg: string; text: string }> = {
@@ -47,6 +48,8 @@ export const ANIMAL_NAMES: Record<string, string> = {
   '🦒': 'Giraffe',
   '🦓': 'Zebra',
 }
+
+export const ANIMAL_EMOJIS = Object.keys(ANIMAL_NAMES)
 
 export function getAnimalName(emoji: string): string {
   return ANIMAL_NAMES[emoji] ?? 'Mystery Creature'

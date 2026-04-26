@@ -1,46 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useFetchAnimals, type AnimalEncounter } from '@/app/hooks/animals'
+import { useFetchAnimals } from '@/app/hooks/animals'
 import { getAnimalName } from '@/app/components/companion/constants'
+import { type AnimalGroup, groupEncounters, formatEncounterDate } from '@/app/components/utils'
 import Link from 'next/link'
 
 const CURRENT_USER = 'demo'
-
-type AnimalGroup = {
-  animalEmoji: string
-  animalName: string
-  count: number
-  lastEncounteredAt: string
-}
-
-function groupEncounters(encounters: AnimalEncounter[]): AnimalGroup[] {
-  const map = new Map<string, AnimalGroup>()
-  for (const e of encounters) {
-    const existing = map.get(e.animalEmoji)
-    const encounteredAt = new Date(e.encounteredAt).toISOString()
-    if (existing) {
-      existing.count += 1
-      if (encounteredAt > existing.lastEncounteredAt) {
-        existing.lastEncounteredAt = encounteredAt
-      }
-    } else {
-      map.set(e.animalEmoji, {
-        animalEmoji: e.animalEmoji,
-        animalName: getAnimalName(e.animalEmoji),
-        count: 1,
-        lastEncounteredAt: encounteredAt,
-      })
-    }
-  }
-  return Array.from(map.values()).sort(
-    (a, b) => new Date(b.lastEncounteredAt).getTime() - new Date(a.lastEncounteredAt).getTime()
-  )
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
 export default function ZooClient() {
   const [groups, setGroups] = useState<AnimalGroup[]>([])
@@ -49,7 +15,9 @@ export default function ZooClient() {
 
   useEffect(() => {
     fetchAnimals()
-      .then((encounters) => setGroups(groupEncounters(encounters)))
+      .then((encounters) =>
+        setGroups(groupEncounters(encounters.map((e) => ({ ...e, animalName: getAnimalName(e.animalEmoji) }))))
+      )
       .catch(() => setGroups([]))
       .finally(() => setLoaded(true))
   }, [fetchAnimals])
@@ -95,7 +63,7 @@ export default function ZooClient() {
                 )}
                 <span className="text-4xl select-none">{g.animalEmoji}</span>
                 <span className="text-sm font-semibold text-gray-800">{g.animalName}</span>
-                <span className="text-xs text-gray-400">{formatDate(g.lastEncounteredAt)}</span>
+                <span className="text-xs text-gray-400">{formatEncounterDate(g.lastEncounteredAt)}</span>
               </div>
             ))}
           </div>
