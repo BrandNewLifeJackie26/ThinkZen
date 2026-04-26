@@ -487,14 +487,14 @@ export default function CompanionWidget({ user }: { user: string }) {
               </div>
               <span className="text-sm font-medium text-gray-700 line-clamp-2" title={phase.companionTask}>{phase.companionTask}</span>
               {currentSubtask && (
-                <span className="text-xs text-gray-400 truncate">↳ {currentSubtask}</span>
+                <span className="text-xs text-gray-400 truncate" title={currentSubtask}>↳ {currentSubtask}</span>
               )}
             </div>
           </div>
 
           {/* User intention */}
           <div className="border-t border-gray-100 pt-3 flex flex-col gap-1">
-            <span className="text-xs text-gray-400">you&apos;re working on...</span>
+            <span className="text-xs text-gray-400">You&apos;re working on...</span>
             <p className="text-sm text-gray-800 line-clamp-2" title={phase.intention}>{phase.intention}</p>
           </div>
 

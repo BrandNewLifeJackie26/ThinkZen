@@ -29,9 +29,8 @@ export const sessionStartSchema = z.object({
     .describe('What the companion is working on — a realistic, specific task (5–8 words)'),
   subtasks: z
     .array(z.string())
-    .min(2)
-    .max(4)
-    .describe('Ordered list of sub-steps the companion will move through during the session'),
+    .min(1)
+    .describe('Ordered list of sub-steps the companion will move through during the session, max 4 subtasks'),
   icon: z
     .string()
     .describe(
