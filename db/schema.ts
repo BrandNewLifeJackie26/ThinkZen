@@ -26,3 +26,11 @@ export const sessions = sqliteTable('sessions', {
   endedAt: integer('ended_at', { mode: 'timestamp' }),
   remainingSeconds: integer('remaining_seconds'),
 })
+
+export const animalEncounters = sqliteTable('animal_encounters', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  sessionId: text('session_id').notNull(),
+  animalEmoji: text('animal_emoji').notNull(),
+  encounteredAt: integer('encountered_at', { mode: 'timestamp' }).notNull(),
+})
