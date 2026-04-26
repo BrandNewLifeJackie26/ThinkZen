@@ -1,7 +1,7 @@
 import { db } from '@/db'
 import { thoughts } from '@/db/schema'
 import { desc, eq } from 'drizzle-orm'
-import ThoughtsClient, { SerializedThought } from './components/ThoughtsClient'
+import Homepage, { SerializedThought } from './components/Homepage'
 
 const CURRENT_USER = 'demo'
 const PAGE_SIZE = 20
@@ -23,5 +23,5 @@ export default async function Home() {
     tags: t.tags ? JSON.parse(t.tags as string) : [],
   }))
 
-  return <ThoughtsClient initialThoughts={initial} />
+  return <Homepage initialThoughts={initial} />
 }

@@ -6,6 +6,7 @@ export type PausedSnapshot = {
   companionTask: string
   subtasks: string[]
   icon: string
+  animalName: string
   tone: Tone
   currentSubtaskIdx: number
   remainingSeconds: number
@@ -22,6 +23,7 @@ export type CompanionPhase =
       companionTask: string
       subtasks: string[]
       icon: string
+      animalName: string
       tone: Tone
       currentSubtaskIdx: number
       remainingSeconds: number
@@ -34,6 +36,7 @@ export type CompanionPhase =
       companionTask: string
       subtasks: string[]
       icon: string
+      animalName: string
       tone: Tone
       currentSubtaskIdx: number
       remainingSeconds: number
@@ -47,6 +50,7 @@ export type CompanionPhase =
       companionTask: string
       subtasks: string[]
       icon: string
+      animalName: string
       tone: Tone
       remainingSeconds: number
       durationSeconds: number
