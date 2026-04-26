@@ -198,7 +198,7 @@ export default function CompanionWidget({ user }: { user: string }) {
     setWrapUpMessage('')
     setEncounterAnimal({ emoji: icon, name: animalName })
     endSession(sessionId, remainingSeconds).catch(console.error)
-    recordEncounter({ sessionId, animalEmoji: icon, animalName })
+    recordEncounter({ sessionId, animalEmoji: icon })
 
     const signal = { cancelled: false }
     getSessionEndMessage({

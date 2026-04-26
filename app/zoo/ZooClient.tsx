@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useFetchAnimals, type AnimalEncounter } from '@/app/hooks/animals'
+import { getAnimalName } from '@/app/components/companion/constants'
 import Link from 'next/link'
 
 const CURRENT_USER = 'demo'
@@ -16,19 +17,19 @@ type AnimalGroup = {
 function groupEncounters(encounters: AnimalEncounter[]): AnimalGroup[] {
   const map = new Map<string, AnimalGroup>()
   for (const e of encounters) {
-    const key = `${e.animalEmoji}__${e.animalName}`
-    const existing = map.get(key)
+    const existing = map.get(e.animalEmoji)
+    const encounteredAt = new Date(e.encounteredAt).toISOString()
     if (existing) {
       existing.count += 1
-      if (e.encounteredAt > existing.lastEncounteredAt) {
-        existing.lastEncounteredAt = e.encounteredAt
+      if (encounteredAt > existing.lastEncounteredAt) {
+        existing.lastEncounteredAt = encounteredAt
       }
     } else {
-      map.set(key, {
+      map.set(e.animalEmoji, {
         animalEmoji: e.animalEmoji,
-        animalName: e.animalName,
+        animalName: getAnimalName(e.animalEmoji),
         count: 1,
-        lastEncounteredAt: e.encounteredAt,
+        lastEncounteredAt: encounteredAt,
       })
     }
   }
@@ -47,8 +48,10 @@ export default function ZooClient() {
   const fetchAnimals = useFetchAnimals(CURRENT_USER)
 
   useEffect(() => {
-    setGroups(groupEncounters(fetchAnimals()))
-    setLoaded(true)
+    fetchAnimals()
+      .then((encounters) => setGroups(groupEncounters(encounters)))
+      .catch(() => setGroups([]))
+      .finally(() => setLoaded(true))
   }, [fetchAnimals])
 
   return (
@@ -82,7 +85,7 @@ export default function ZooClient() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {groups.map((g) => (
               <div
-                key={`${g.animalEmoji}__${g.animalName}`}
+                key={g.animalEmoji}
                 className="relative bg-white rounded-2xl border border-gray-200 shadow-sm p-5 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
               >
                 {g.count > 1 && (
